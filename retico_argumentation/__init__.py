@@ -1,2 +1,4 @@
-from retico_argumentation import utterance
 from retico_argumentation import rstparser
+from retico_argumentation import rbam
+
+from retico_argumentation.version import __version__

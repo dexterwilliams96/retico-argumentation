@@ -1,7 +1,9 @@
 import retico_core
 import torch
 
+from retico_speakerdiarization.utterance import UtteranceIU
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
+
 
 class ArgumentRelationIU(retico_core.IncrementalUnit):
     """An Incremental Unit capturing an assumed argumentative relation between utterances."""
@@ -36,6 +38,7 @@ class ArgumentRelationIU(retico_core.IncrementalUnit):
     def set_relation(self, relation):
         self.relation = relation
 
+
 class RbAMModule(retico_core.AbstractModule):
     @staticmethod
     def name():
@@ -53,19 +56,81 @@ class RbAMModule(retico_core.AbstractModule):
     def output_iu():
         return ArgumentRelationIU
 
-    def __init__(self, model_id="raruidol/ArgumentMining-EN-ARI-AIF-RoBERTa_L", retroactive_relations=False, device=torch.cuda.current_device() if torch.cuda.is_available() else "cpu",**kwargs):
+    def __init__(self, model_id="raruidol/ArgumentMining-EN-ARI-AIF-RoBERTa_L", retroactive_relations=False, irreflexive=True, device=torch.cuda.current_device() if torch.cuda.is_available() else "cpu", **kwargs):
         super().__init__(**kwargs)
         tokenizer = AutoTokenizer.from_pretrained(model_id)
         model = AutoModelForSequenceClassification.from_pretrained(model_id)
-        self.classifier = pipeline("text-classification", model=model, tokenizer=tokenizer, device=device)
-        self.retroactive_relations=False
-        self.utterances = dict()
+        model.eval()
+        self.classifier = pipeline(
+            "text-classification", model=model, tokenizer=tokenizer, device=device)
+        self.retroactive_relations = retroactive_relations
+        self.irreflexive = irreflexive
+        self.arguments = dict()
+
+    def _check_committed(self, iu, committed):
+        return (iu.source in committed or self.arguments[iu.source.created_at][1]) and (iu.target in committed or self.arguments[iu.target.created_at][1])
 
     def process_update(self, update_message):
         um = retico_core.UpdateMessage()
-        # Maintain a list of utterance ius, with commit status (true/false)
-        # Maintain a list of removed ius
-        # Maintain a list of added ius
+        revoked = []
+        added = []
+        committed = []
+
+        # Manage current argument status
+        for iu, ut in update_message:
+            if ut == retico_core.UpdateType.REVOKE:
+                revoked.append(iu)
+                del self.arguments[iu.created_at]
+            elif ut == retico_core.UpdateType.ADD:
+                added.append(iu)
+                self.arguments[iu.created_at] = (iu, False)
+            else:
+                if iu.created_at in self.arguments:
+                    committed.append(iu)
+                else:
+                    added.append(iu)
+                self.arguments[iu.created_at] = (iu, True)
+
+        # Handle existing ius
+        remove_ius = []
+        for iu in self.current_output:
+            if iu.get_source() in revoked or iu.get_target() in revoked:
+                remove_ius.append(iu)
+                um.append_iu(iu, retico_core.UpdateType.REVOKE)
+            elif self._check_committed(iu, committed):
+                remove_ius.append(iu)
+                um.append_iu(iu, retico_core.UpdateType.COMMIT)
+        self.current_output = [
+            iu for iu in self.current_output if iu not in remove_ius]
+
+        # Handle new ius
+        for iu in added:
+            new_argument = self.arguments[iu.created_at]
+            child_to_parent_tuples = [(argument, new_argument) for argument in self.arguments.values(
+            ) if not self.irreflexive or new_argument != argument]
+            # TODO retro
+            # parent_to_child_tuples = None if not self.retroactive_relations else [(new_argument, argument) for argument in self.arguments.values() if not self.irreflexive or new_argument != argument]
+            if child_to_parent_tuples:
+                child_to_parent = self.classifier(
+                    [(a[0][0].get_text(), a[1][0].get_text()) for a in child_to_parent_tuples])
+                for i, result in enumerate(child_to_parent):
+                    # We currently ignore all labels (support/inference/none/rephrase) except attack
+                    print(result)
+                    # TODO we should try and handle rephrases here
+                    label = result["label"]
+                    if label == "Conflict":
+                        new_argument = child_to_parent_tuples[i][0]
+                        argument = child_to_parent_tuples[i][1]
+                        # If both source and target are committed, then we can safely commit
+                        ut = retico_core.UpdateType.COMMIT if new_argument[
+                            1] and argument[1] else retico_core.UpdateType.ADD
+                        output_iu = self.create_iu(new_argument[0])
+                        output_iu.set_relation(label)
+                        output_iu.set_source(new_argument[0])
+                        output_iu.set_target(argument[0])
+                        if ut == retico_core.UpdateType.ADD:
+                            self.current_output.append(output_iu)
+                        um.add_iu(output_iu, ut)
+
         if len(um) > 0:
             self.append(um)
-

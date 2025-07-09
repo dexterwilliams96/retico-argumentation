@@ -2,7 +2,7 @@ import retico_core
 import torch
 
 from isanlp_rst.parser import Parser
-from retico_argumentation.utterance import UtteranceIU
+from retico_speakerdiarization.utterance import UtteranceIU
 
 
 class RSTIU(retico_core.IncrementalUnit):
@@ -49,6 +49,7 @@ class RSTModule(retico_core.AbstractModule):
 
     def process_update(self, update_message):
         um = retico_core.UpdateMessage()
+
         for iu, ut in update_message:
             if ut == retico_core.UpdateType.REVOKE:
                 remove_iu = None
@@ -79,5 +80,6 @@ class RSTModule(retico_core.AbstractModule):
                     output_iu = self.create_iu(iu)
                     output_iu.set_tree(tree)
                     um.add_iu(output_iu, ut)
+
         if len(um) > 0:
             self.append(um)
