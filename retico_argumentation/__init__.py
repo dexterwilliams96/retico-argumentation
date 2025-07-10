@@ -1,3 +1,4 @@
+from retico_argumentation import afsolver
 from retico_argumentation import rstparser
 from retico_argumentation import rbam
 

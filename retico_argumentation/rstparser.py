@@ -42,7 +42,7 @@ class RSTModule(retico_core.AbstractModule):
     def output_iu():
         return RSTIU
 
-    def __init__(self, model_id="tchewik/isanlp_rst_v3", model_version="gumrrg", device=-1, **kwargs):
+    def __init__(self, model_id="tchewik/isanlp_rst_v3", model_version="gumrrg", device=torch.cuda.current_device() if torch.cuda.is_available() else -1, **kwargs):
         super().__init__(**kwargs)
         self.parser = Parser(hf_model_name=model_id,
                              hf_model_version=model_version, cuda_device=device)
@@ -58,7 +58,7 @@ class RSTModule(retico_core.AbstractModule):
                         remove_iu = curr_iu
                         break
                 if remove_iu is not None:
-                    self.revoke(remove_iu)
+                    self.current_output.remove(remove_iu)
                     um.add_iu(remove_iu, ut)
             elif ut == retico_core.UpdateType.ADD:
                 tree = self.parser(iu.get_text())["rst"]
@@ -72,9 +72,9 @@ class RSTModule(retico_core.AbstractModule):
                     if curr_iu.grounded_in == iu:
                         found = curr_iu
                         break
-                if remove_iu:
-                    um.add_iu(remove_iu, ut)
+                if remove_iu is not None:
                     self.current_output.remove(remove_iu)
+                    um.add_iu(output_iu, ut)
                 else:
                     tree = self.parser(iu.get_text())["rst"]
                     output_iu = self.create_iu(iu)

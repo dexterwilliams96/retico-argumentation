@@ -2,7 +2,7 @@ import retico_core
 import torch
 
 from retico_speakerdiarization.utterance import UtteranceIU
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, BitsAndBytesConfig
 
 
 class ArgumentRelationIU(retico_core.IncrementalUnit):
@@ -64,12 +64,20 @@ class RbAMModule(retico_core.AbstractModule):
     def output_iu():
         return ArgumentRelationIU
 
-    def __init__(self, model_id="raruidol/ArgumentMining-EN-ARI-AIF-RoBERTa_L", retroactive_relations=False, irreflexive=True, device="cpu", **kwargs):
+    def __init__(self, model_id="raruidol/ArgumentMining-EN-ARI-AIF-RoBERTa_L", retroactive_relations=False, irreflexive=True, quantize=False, **kwargs):
         super().__init__(**kwargs)
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
-        self.model = AutoModelForSequenceClassification.from_pretrained(
-            model_id).to(device)
-        self.device = device
+        if quantize:
+            bnb_config = BitsAndBytesConfig(
+                    load_in_8bit=True,
+                    llm_int8_threshold=6.0,
+                    llm_int8_has_fp16_weight=False
+            )
+            self.model = AutoModelForSequenceClassification.from_pretrained(
+                model_id, device_map="auto", quantization_config=bnb_config)
+        else:
+            self.model = AutoModelForSequenceClassification.from_pretrained(
+                model_id, device_map="auto")
         self.retroactive_relations = retroactive_relations
         self.irreflexive = irreflexive
         self.arguments = dict()
@@ -81,7 +89,7 @@ class RbAMModule(retico_core.AbstractModule):
             return_tensors="pt",
             padding=True,
             truncation=True
-        ).to(self.device)
+        ).to(self.model.device)
         outputs = self.model(**inputs)
         logits = outputs.logits
         preds = torch.argmax(logits, dim=1)
@@ -135,18 +143,19 @@ class RbAMModule(retico_core.AbstractModule):
                 child_to_parent = self._classify_pairs(
                     [(a[0][0].get_text(), a[1][0].get_text()) for a in child_to_parent_tuples])
                 for i, label in enumerate(child_to_parent):
-                    new_argument = child_to_parent_tuples[i][0]
-                    argument = child_to_parent_tuples[i][1]
-                    # If both source and target are committed, then we can safely commit
-                    ut = retico_core.UpdateType.COMMIT if new_argument[
-                        1] and argument[1] else retico_core.UpdateType.ADD
-                    output_iu = self.create_iu(new_argument[0])
-                    output_iu.set_relation(label)
-                    output_iu.set_source(new_argument[0])
-                    output_iu.set_target(argument[0])
-                    if ut == retico_core.UpdateType.ADD:
-                        self.current_output.append(output_iu)
-                    um.add_iu(output_iu, ut)
+                    if label == "Conflict" or label == "Inference":
+                        new_argument = child_to_parent_tuples[i][1]
+                        argument = child_to_parent_tuples[i][0]
+                        # If both source and target are committed, then we can safely commit
+                        ut = retico_core.UpdateType.COMMIT if new_argument[
+                            1] and argument[1] else retico_core.UpdateType.ADD
+                        output_iu = self.create_iu(new_argument[0])
+                        output_iu.set_relation(label)
+                        output_iu.set_source(new_argument[0])
+                        output_iu.set_target(argument[0])
+                        if ut == retico_core.UpdateType.ADD:
+                            self.current_output.append(output_iu)
+                        um.add_iu(output_iu, ut)
 
         if len(um) > 0:
             self.append(um)
