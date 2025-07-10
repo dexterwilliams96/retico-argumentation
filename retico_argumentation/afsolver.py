@@ -125,7 +125,7 @@ class AFModule(retico_core.AbstractConsumingModule):
             rephrases = value.get_relations("Rephrase")
             if len(rephrases) > 0:
                 remove_arguments.append(key)
-                for argument in self.arguments:
+                for argument in self.arguments.values():
                     argument.substitute_relations(key, rephrases)
         for key in remove_arguments:
             del self.arguments[key]
@@ -174,16 +174,7 @@ class AFModule(retico_core.AbstractConsumingModule):
                 self.output_dir, filename + '.rs3'))
 
     def process_update(self, update_message):
-        # TODO extra addition bus from RST module
-        print('--------------------')
-        for key, value in self.arguments.items():
-            print(f'TS: {key}')
-            print(value)
-            print()
         for iu, ut in update_message:
-            print()
-            print(iu)
-            print(ut)
             if isinstance(iu, RSTIU):
                 origin = iu.grounded_in.created_at
                 if ut == retico_core.UpdateType.REVOKE:
@@ -217,6 +208,7 @@ class AFModule(retico_core.AbstractConsumingModule):
                             target.get_text(), target.get_speaker())
                     self.arguments[source.created_at].add_relation(
                         target.created_at, relation)
+        print('--------------------')
         for key, value in self.arguments.items():
             print(f'TS: {key}')
             print(value)
