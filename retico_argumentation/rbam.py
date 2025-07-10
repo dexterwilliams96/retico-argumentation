@@ -143,7 +143,8 @@ class RbAMModule(retico_core.AbstractModule):
                 child_to_parent = self._classify_pairs(
                     [(a[0][0].get_text(), a[1][0].get_text()) for a in child_to_parent_tuples])
                 for i, label in enumerate(child_to_parent):
-                    if label == "Conflict" or label == "Inference":
+                    # Ignore support/inference etc.
+                    if label == "Conflict" or label == "Rephrase":
                         new_argument = child_to_parent_tuples[i][1]
                         argument = child_to_parent_tuples[i][0]
                         # If both source and target are committed, then we can safely commit

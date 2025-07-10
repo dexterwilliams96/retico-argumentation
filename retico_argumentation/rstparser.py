@@ -10,7 +10,7 @@ class RSTIU(retico_core.IncrementalUnit):
 
     @staticmethod
     def type():
-        return "Utterance Incremental Unit"
+        return "RST Incremental Unit"
 
     def __init__(self, creator=None, iuid=0, previous_iu=None, grounded_in=None,
                  payload=None, decision=None, tree=None, **kwargs):
@@ -74,7 +74,7 @@ class RSTModule(retico_core.AbstractModule):
                         break
                 if remove_iu is not None:
                     self.current_output.remove(remove_iu)
-                    um.add_iu(output_iu, ut)
+                    um.add_iu(remove_iu, ut)
                 else:
                     tree = self.parser(iu.get_text())["rst"]
                     output_iu = self.create_iu(iu)
