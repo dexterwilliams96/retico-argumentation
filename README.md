@@ -23,21 +23,14 @@ conda install -c conda-forge 'ffmpeg<7'
 This module performs speaker diarization and ASR on microphone input. It operates under the assumption that two speakers are having an argument, every argument is an utterance, and every utterance belongs to one speaker. Once utterances are collected an RST parser collects their RST tree structure, and a RbAM model checks which previous arguments the new argument conflicts with. This inputs are then fed to a model which constructs an abstract argumentation framework. When the system shutsdown the AF solutions are output along with RST files for each argument. RST files can be opened with rstWeb, and af files can be opened with pyarg.
 
 ### System structure
-
-+-------------+         +-------------+           
-| Microphone  |-------> | Diarization |-----+     
-|             |         +-------------+     |     
-|             |                              v     
-|             |         +-------------+   +------------+       
-|             |-------> |     ASR     |-->|  Utterance  |       
-+-------------+         +-------------+   +------------+       
-                                              |     |           
-                                              v     v           
-                                         +--------+  +--------+    
-                                         |  RbAM  |  |   RST  |    
-                                         +--------+  +--------+    
-                                              \      /             
-                                               v    v             
-                                              +--------+          
-                                              |   AF   |          
-                                              +--------+          
+```mermaid
+graph TD;
+    Microphone-->Diarization;
+    Microphone-->ASR;
+    Diarization-->Utterance;
+    ASR-->Utterance;
+    Utterance-->RbAM;
+    Utterance-->RST;
+    RbAM-->AF;
+    RST-->AF;
+```
