@@ -1,0 +1,3 @@
+[submodule "retico-whisperasr"]
+	path = retico-whisperasr
+	url = git@github.com:retico-team/retico-whisperasr.git
