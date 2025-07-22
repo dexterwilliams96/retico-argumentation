@@ -1,3 +1,6 @@
 [submodule "retico-whisperasr"]
 	path = retico-whisperasr
 	url = git@github.com:retico-team/retico-whisperasr.git
+[submodule "retico-speakerdiarization"]
+	path = retico-speakerdiarization
+	url = git@github.com:dexterwilliams96/retico-speakerdiarization.git

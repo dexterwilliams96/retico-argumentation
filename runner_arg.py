@@ -3,6 +3,8 @@ import sys
 
 os.environ['WHISPER'] = 'retico-whisperasr'
 sys.path.append(os.environ['WHISPER'])
+os.environ['SD'] = 'retico-speakerdiarization'
+sys.path.append(os.environ['SD'])
 
 from retico_core import *
 from retico_core.audio import MicrophoneModule
