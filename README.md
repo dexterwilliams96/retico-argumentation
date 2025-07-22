@@ -9,6 +9,7 @@ Requirements can be installed through pip:
 pip install -r requirements.txt
 ```
 You will likely want `cuBLAS` and `cuDNN` for GPU execution (see [here](https://pytorch.org/get-started/locally/)). Follow retico-whisperasr install instructions as well.
+Make sure to `init` and `update` the submodules. If you run into any environment issues, follow the installation guides for the submodules as well.
 
 
 ### Loading Initial Embeddings
